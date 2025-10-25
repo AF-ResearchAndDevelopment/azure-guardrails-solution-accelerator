@@ -2792,12 +2792,7 @@ function Send-GuardrailsData {
     }
     
     try {
-        # Use Azure Monitor Data Collection API
-        $headers = @{
-            'Authorization' = "Bearer $((Get-AzAccessToken).Token)"
-            'Content-Type' = 'application/json'
-        }
-        
+        # Use Azure Monitor Data Collection API with Invoke-AzRestMethod
         $streamName = switch ($LogType) {
             'GuardrailsCompliance' { 'Custom-GuardrailsCompliance' }
             'GuardrailsComplianceException' { 'Custom-GuardrailsComplianceException' }
@@ -2807,7 +2802,11 @@ function Send-GuardrailsData {
         }
         
         $uri = "$($env:DCE_ENDPOINT)/dataCollectionRules/$($env:DCR_IMMUTABLE_ID)/streams/$streamName" + "?api-version=2023-01-01"
-        Invoke-RestMethod -Uri $uri -Method Post -Body $Data -Headers $headers
+        $response = Invoke-AzRestMethod -Uri $uri -Method POST -Payload $Data
+        
+        if ($response.StatusCode -ge 400) {
+            throw "Data Collection API returned status code $($response.StatusCode): $($response.Content)"
+        }
     }
     catch {
         Write-Error "Data Collection API failed: $($_.Exception.Message)"

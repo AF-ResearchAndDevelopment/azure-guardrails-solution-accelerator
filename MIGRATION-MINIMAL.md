@@ -15,8 +15,9 @@
 
 ### 2. Migrated All Data Ingestion Calls
 **File**: `/src/Guardrails-Common/GR-Common.psm1`
-- **Updated**: `Send-GuardrailsData` function - Now uses only Azure Monitor Data Collection API
+- **Updated**: `Send-GuardrailsData` function - Now uses Azure Monitor Data Collection API with `Invoke-AzRestMethod`
 - **Replaced**: All 6 instances of `Send-OMSAPIIngestionFile` with `Send-GuardrailsData`
+- **Authentication**: Uses `Invoke-AzRestMethod` for automatic Azure authentication
 - **Required**: `DCE_ENDPOINT` and `DCR_IMMUTABLE_ID` environment variables must be set
 
 **File**: `/tools/CentralView/Modules/ingest-tenantsData/ingest-tenantsData.psm1`
