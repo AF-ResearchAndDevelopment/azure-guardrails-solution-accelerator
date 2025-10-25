@@ -286,8 +286,8 @@ function Check-PrivilegedExternalUsers  {
     <#
     $logAnalyticsEntry = ConvertTo-Json -inputObject $GuestUserStatus
         
-    Send-OMSAPIIngestionFile  -customerId $WorkSpaceID -sharedkey $workspaceKey -body $logAnalyticsEntry `
-                                -logType $LogType -TimeStampField Get-Date                 
+    Send-GuardrailsData -WorkspaceId $WorkSpaceID -WorkspaceKey $workspaceKey -Data $logAnalyticsEntry `
+                        -LogType $LogType -TimeStampField "TimeGenerated"                 
     #>
     
     $stopWatch.Stop()

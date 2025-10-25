@@ -202,11 +202,15 @@ function get-tenantdata {
             $FinalObjectList | Out-File ./debubinfo_finalobjectlist.txt
         }
         $FinalObjectListJson = $FinalObjectList | ConvertTo-Json
-        Send-OMSAPIIngestionFile  -customerId $WorkSpaceID `
-        -sharedkey $workspaceKey `
-        -body $FinalObjectListJson `
-        -logType $LogType `
-        -TimeStampField Get-Date
+        
+        # Import Guardrails-Common module for Send-GuardrailsData function
+        Import-Module "$($env:SystemRoot)\WindowsPowerShell\v1.0\Modules\Guardrails-Common\GR-Common.psm1" -Force
+        
+        Send-GuardrailsData -WorkspaceId $WorkSpaceID `
+            -WorkspaceKey $workspaceKey `
+            -Data $FinalObjectListJson `
+            -LogType $LogType `
+            -TimeStampField "TimeGenerated"
     }
     else { "No data to send" }
 }

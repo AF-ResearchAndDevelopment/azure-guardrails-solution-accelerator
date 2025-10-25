@@ -225,12 +225,12 @@ Function Add-LogEntry {
     
     $entryJson = ConvertTo-Json -inputObject $entryHash -Depth 20
 
-    # log event to Log Analytics workspace by REST API via the OMSIngestionAPI community PS module
-    Send-OMSAPIIngestionFile  -customerId $workspaceGuid `
-        -sharedkey $workspaceKey `
-        -body $entryJson `
-        -logType $exceptionLogTable `
-        -TimeStampField Get-Date 
+    # log event to Log Analytics workspace via Azure Monitor Data Collection API
+    Send-GuardrailsData -WorkspaceId $workspaceGuid `
+        -WorkspaceKey $workspaceKey `
+        -Data $entryJson `
+        -LogType $exceptionLogTable `
+        -TimeStampField "TimeGenerated" 
 
 }
 
@@ -283,11 +283,11 @@ Function Add-TenantInfo {
     if ($debug) { Write-Output $tenantInfo }
     $JSON = ConvertTo-Json -inputObject $object
 
-    Send-OMSAPIIngestionFile  -customerId $WorkSpaceID `
-        -sharedkey $workspaceKey `
-        -body $JSON `
-        -logType $LogType `
-        -TimeStampField Get-Date 
+    Send-GuardrailsData -WorkspaceId $WorkSpaceID `
+        -WorkspaceKey $workspaceKey `
+        -Data $JSON `
+        -LogType $LogType `
+        -TimeStampField "TimeGenerated"
 }
 
 function Add-LogAnalyticsResults {
@@ -309,11 +309,11 @@ function Add-LogAnalyticsResults {
 
     $JSON = ConvertTo-Json -inputObject $Results
 
-    Send-OMSAPIIngestionFile  -customerId $WorkSpaceID `
-        -sharedkey $workspaceKey `
-        -body $JSON `
-        -logType $LogType `
-        -TimeStampField Get-Date 
+    Send-GuardrailsData -WorkspaceId $WorkSpaceID `
+        -WorkspaceKey $workspaceKey `
+        -Data $JSON `
+        -LogType $LogType `
+        -TimeStampField "TimeGenerated"
 }
 
 function Check-DocumentExistsInStorage {
@@ -536,11 +536,11 @@ function Check-UpdateAvailable {
     }
     $JSON = ConvertTo-Json -inputObject $object
 
-    Send-OMSAPIIngestionFile  -customerId $WorkSpaceID `
-        -sharedkey $workspaceKey `
-        -body $JSON `
-        -logType $LogType `
-        -TimeStampField Get-Date 
+    Send-GuardrailsData -WorkspaceId $WorkSpaceID `
+        -WorkspaceKey $workspaceKey `
+        -Data $JSON `
+        -LogType $LogType `
+        -TimeStampField "TimeGenerated"
 }
 
 function get-itsgdata {
@@ -568,11 +568,11 @@ function get-itsgdata {
         $JSONcontrols
     }
 
-    Send-OMSAPIIngestionFile  -customerId $WorkSpaceID `
-        -sharedkey $workspaceKey `
-        -body $JSONcontrols `
-        -logType $LogType `
-        -TimeStampField Get-Date
+    Send-GuardrailsData -WorkspaceId $WorkSpaceID `
+        -WorkspaceKey $workspaceKey `
+        -Data $JSONcontrols `
+        -LogType $LogType `
+        -TimeStampField "TimeGenerated"
 }
 
 function New-LogAnalyticsData {
@@ -593,11 +593,11 @@ function New-LogAnalyticsData {
     )
     $JsonObject = convertTo-Json -inputObject $Data -Depth 3
 
-    Send-OMSAPIIngestionFile  -customerId $WorkSpaceID `
-        -sharedkey $workspaceKey `
-        -body $JsonObject `
-        -logType $LogType `
-        -TimeStampField Get-Date  
+    Send-GuardrailsData -WorkspaceId $WorkSpaceID `
+        -WorkspaceKey $workspaceKey `
+        -Data $JsonObject `
+        -LogType $LogType `
+        -TimeStampField "TimeGenerated"
 }
 
 function Hide-Email {
@@ -2763,4 +2763,54 @@ GuardrailsUserRaw_CL
     Write-Verbose "=== FetchAllUserRawData Complete ==="
     
     return $ErrorList
+}
+
+# Azure Monitor Data Collection API function
+# Replaces deprecated OMSIngestionAPI with modern Azure Monitor ingestion
+function Send-GuardrailsData {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $WorkspaceId,
+        
+        [Parameter(Mandatory = $true)]
+        [string] $WorkspaceKey,
+        
+        [Parameter(Mandatory = $true)]
+        [string] $Data,
+        
+        [Parameter(Mandatory = $true)]
+        [string] $LogType,
+        
+        [Parameter(Mandatory = $false)]
+        [string] $TimeStampField = "TimeGenerated"
+    )
+    
+    # Ensure Data Collection API variables are available
+    if (-not $env:DCE_ENDPOINT -or -not $env:DCR_IMMUTABLE_ID) {
+        throw "Data Collection API not configured. DCE_ENDPOINT and DCR_IMMUTABLE_ID environment variables are required."
+    }
+    
+    try {
+        # Use Azure Monitor Data Collection API
+        $headers = @{
+            'Authorization' = "Bearer $((Get-AzAccessToken).Token)"
+            'Content-Type' = 'application/json'
+        }
+        
+        $streamName = switch ($LogType) {
+            'GuardrailsCompliance' { 'Custom-GuardrailsCompliance' }
+            'GuardrailsComplianceException' { 'Custom-GuardrailsComplianceException' }
+            'GuardrailsUserRaw' { 'Custom-GuardrailsUserRaw' }
+            'GR2ExternalUsers' { 'Custom-GR2ExternalUsers' }
+            default { 'Custom-GRResults' }
+        }
+        
+        $uri = "$($env:DCE_ENDPOINT)/dataCollectionRules/$($env:DCR_IMMUTABLE_ID)/streams/$streamName" + "?api-version=2023-01-01"
+        Invoke-RestMethod -Uri $uri -Method Post -Body $Data -Headers $headers
+    }
+    catch {
+        Write-Error "Data Collection API failed: $($_.Exception.Message)"
+        throw
+    }
 }

@@ -8,5 +8,5 @@
     'Az.ResourceGraph' = '0.13.0'
     'Az.OperationalInsights' = '3.2.0'
     'Az.KeyVault' = '4.7.0'
-    'OMSIngestionAPI' = '1.6.0'
+    'Az.Monitor' = '5.2.1'
 }
